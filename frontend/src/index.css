@@ -4,6 +4,9 @@
   --bg: #fff;
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
+  --panel-bg: #fff;
+  --input-bg: #fff;
+  --muted: #6b6375;
   --accent: #aa3bff;
   --accent-bg: rgba(170, 59, 255, 0.1);
   --accent-border: rgba(170, 59, 255, 0.5);
@@ -37,6 +40,9 @@
     --bg: #16171d;
     --border: #2e303a;
     --code-bg: #1f2028;
+    --panel-bg: #1b1c22;
+    --input-bg: #16171d;
+    --muted: #9ca3af;
     --accent: #c084fc;
     --accent-bg: rgba(192, 132, 252, 0.15);
     --accent-border: rgba(192, 132, 252, 0.5);
