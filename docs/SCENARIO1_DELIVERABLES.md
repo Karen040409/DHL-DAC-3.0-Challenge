@@ -117,7 +117,7 @@ Every iteration writes a row to **`ProcessingLog.xlsx`** *and* posts to **`/api/
 |------|--------|
 | **GPT-style Draft Builder** | **Implemented offline** as `frontend/src/services/draftBuilder.js` — same JSON shape as a real LLM call; click *Propose draft* in the Upload console. |
 | **Conflict / outdated alerts** | **Implemented** — `GET /api/articles/conflicts` + warning banner in Upload console. |
-| **OCR for PNG/JPG via GPT** | Documented in `Workflows/ReadInput.md` (case `image`). Plug in **UiPath OmniPage OCR** or **Read PDF With OCR** to enable in Studio. |
+| **OCR for PNG/JPG via GPT** | **Implemented** via offline Tesseract.js. New endpoint `POST /api/ocr` (multipart field `file`). For UiPath the same endpoint can be called instead of OmniPage OCR. |
 
 ---
 
@@ -156,6 +156,7 @@ Fresh installs only need `schema.sql` + `seed.sql` — both tables are already i
 | POST | `/api/ingestion/log` | RPA: append run event (created / duplicate / failed / updated) |
 | GET | `/api/ingestion/recent?limit=20` | Latest RPA events for admins |
 | POST | `/api/extract` | Server-side PDF / DOCX / TXT text extraction (multipart field `file`, returns `{ text, kind, hash, char_count, warning }`) |
+| POST | `/api/ocr` | OCR PNG / JPG / WEBP / GIF screenshots into text via offline Tesseract.js |
 | GET | `/api/tags` | Tag directory |
 | GET | `/api/users` | Editors for filter dropdown |
 
