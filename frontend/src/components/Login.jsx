@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { loginRequest } from '../services/api.js'
 import { getSession, setSession } from '../auth/session.js'
 import styles from './Login.module.css'
-
-const defaultUserId = Number(import.meta.env.VITE_DEFAULT_USER_ID) || 1
 
 function LockIcon() {
   return (
@@ -29,11 +28,10 @@ export default function Login() {
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState('editor')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
 
@@ -42,21 +40,28 @@ export default function Login() {
       setError('Enter a username (at least 2 characters).')
       return
     }
-    if (password.length < 4) {
-      setError('For this demo, use a password with at least 4 characters.')
+    if (password.length < 1) {
+      setError('Enter a password.')
       return
     }
 
     setBusy(true)
-    window.setTimeout(() => {
+    try {
+      const user = await loginRequest(u, password)
+      if (!user || typeof user.id !== 'number') {
+        throw new Error('Unexpected login response from server')
+      }
       setSession({
-        userId: defaultUserId,
-        username: u,
-        role: role === 'admin' ? 'admin' : 'editor',
+        userId: user.id,
+        username: user.username,
+        role: user.role === 'admin' ? 'admin' : 'editor',
       })
-      setBusy(false)
       navigate(from, { replace: true })
-    }, 380)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -68,8 +73,9 @@ export default function Login() {
         </div>
         <h1 className={styles.title}>Sign in to SmartHub</h1>
         <p className={styles.sub}>
-          DHL SmartHub — Knowledge Base MVP. Session is stored locally for this demo;
-          the server still validates <code>creator_id</code> on writes.
+          DHL SmartHub — Knowledge Base MVP. Credentials are checked against the{' '}
+          <code>users</code> table via <code>POST /api/auth/login</code>. Editors created by
+          the RPA bot and the seed script can sign in with the same flow.
         </p>
 
         <form className={styles.form} onSubmit={handleSubmit} noValidate>
@@ -87,7 +93,7 @@ export default function Login() {
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="e.g. ops.editor"
+              placeholder="e.g. admin_karen or ops.editor"
             />
           </div>
 
@@ -100,19 +106,12 @@ export default function Login() {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Demo password"
+              placeholder="Password"
             />
-            <p className={styles.hint}>Mock login — credentials are not sent to the server.</p>
-          </div>
-
-          <div className={styles.row}>
-            <label className={styles.role}>
-              Role
-              <select value={role} onChange={(e) => setRole(e.target.value)}>
-                <option value="editor">Editor</option>
-                <option value="admin">Admin</option>
-              </select>
-            </label>
+            <p className={styles.hint}>
+              Seeded accounts use <code>demo</code> as the password until you run the
+              real bcrypt rehash script.
+            </p>
           </div>
 
           <button className={styles.submit} type="submit" disabled={busy}>
@@ -121,8 +120,9 @@ export default function Login() {
         </form>
 
         <p className={styles.footer}>
-          Default <code>creator_id</code> for new drafts:{' '}
-          <code>{String(defaultUserId)}</code> — ensure this user exists in MySQL.
+          Demo accounts seeded: <code>admin_karen</code>, <code>ops.editor</code>,{' '}
+          <code>ops.reviewer</code>, <code>bot.rpa</code> — all with password{' '}
+          <code>demo</code>.
         </p>
       </div>
     </div>

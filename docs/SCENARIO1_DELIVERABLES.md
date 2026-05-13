@@ -16,7 +16,8 @@ This document supports **Project Management (10%)**, **Web (50%)**, and **RPA de
 | 4 | Status history (Draft→Reviewed→Published) + creator/date filters | ☑ | Migration `002`, Viewer history modal |
 | 5 | Attachments + ingestion API + Draft Builder + UiPath project | ☑ | Migration `003`, `rpa/SmartHubBot/` |
 | 6 | Server-side PDF / DOCX extraction in Upload console | ☑ | `pdf-parse`, `mammoth`, `POST /api/extract` |
-| 7 | Demo recording + report | ☐ | Screen capture + RPA run video |
+| 7 | Real bcrypt login + OCR endpoint + RPA simulator + richer seed | ☑ | `POST /api/auth/login`, `POST /api/ocr` (Tesseract.js), `rpa/simulator/`, `database/seed.sql` |
+| 8 | Demo recording + report | ☐ | Screen capture + RPA run video |
 
 ### Risks / mitigations
 
@@ -42,7 +43,7 @@ This document supports **Project Management (10%)**, **Web (50%)**, and **RPA de
 | JSON REST, no hardcoded lists | All article / tag / user / attachment data from API |
 | CRUD | Articles + attachments + ingestion log; tags GET; users GET |
 | DB-backed | MySQL via `mysql2` pool |
-| Secured access (baseline) | Mock session + protected Upload + per-row API actions; production hardening = bcrypt vs `password_hash` |
+| Secured access | **Real server-side login** via `POST /api/auth/login` (bcrypt vs `users.password_hash`); session stored client-side; Upload route gated by session; per-row API actions require the session for status / delete |
 | Upload console (text + PDF + DOCX) | Text + file picker; **server-side PDF / DOCX / TXT text extraction** (`POST /api/extract`, `pdf-parse` + `mammoth`); files also stored server-side + downloadable from Viewer |
 | Draft + status | Default **Draft**; transitions **Reviewed** / **Published**, recorded in `article_status_history` |
 | Viewer searchable & filterable | Client search; API filters: status, tag, **creator**, **updated date range**; **Open** modal shows content + attachments |
@@ -156,6 +157,7 @@ Fresh installs only need `schema.sql` + `seed.sql` — both tables are already i
 | POST | `/api/ingestion/log` | RPA: append run event (created / duplicate / failed / updated) |
 | GET | `/api/ingestion/recent?limit=20` | Latest RPA events for admins |
 | POST | `/api/extract` | Server-side PDF / DOCX / TXT text extraction (multipart field `file`, returns `{ text, kind, hash, char_count, warning }`) |
+| POST | `/api/auth/login` | Real bcrypt password check; returns `{ id, username, role }` or 401 |
 | POST | `/api/ocr` | OCR PNG / JPG / WEBP / GIF screenshots into text via offline Tesseract.js |
 | GET | `/api/tags` | Tag directory |
 | GET | `/api/users` | Editors for filter dropdown |
@@ -183,6 +185,14 @@ npm run dev       # http://localhost:5173
 # Open rpa\SmartHubBot\project.json in UiPath Studio.
 # Fill Data\Config.xlsx (sheet "settings") — at minimum InputFolder + ApiBaseUrl.
 # Drop sample files from rpa\SmartHubBot\Inputs\ into InputFolder, then Run Main.xaml.
+
+# 4b. (Optional) Run the Node.js simulator instead of UiPath — same API contract
+node rpa\simulator\run.js
+
+# 5. (Recommended for the demo) replace seeded placeholder hashes with real bcrypt
+cd backend
+node scripts\hash-demo-passwords.js
+# Then sign in at /login with: admin_karen / demo (or ops.editor / demo, etc.)
 ```
 
 After the bot finishes:

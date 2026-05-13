@@ -183,6 +183,20 @@ export function attachmentDownloadUrl(articleId, attachmentId) {
 }
 
 /**
+ * Server-side login. Returns the real user row from MySQL (id, username, role)
+ * so the SmartHub session reflects the authenticated user instead of a guess.
+ * @param {string} username
+ * @param {string} password
+ */
+export function loginRequest(username, password) {
+  return request('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+}
+
+/**
  * Send a single PDF/DOCX/TXT to the server for text extraction.
  * Used by the Upload console to turn messy attachments into editable text
  * before saving the draft.

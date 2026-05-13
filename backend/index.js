@@ -7,6 +7,7 @@ import usersRouter from './routes/users.js'
 import ingestionRouter from './routes/ingestion.js'
 import extractRouter from './routes/extract.js'
 import ocrRouter from './routes/ocr.js'
+import authRouter from './routes/auth.js'
 
 const app = express()
 const PORT = Number(process.env.PORT) || 3001
@@ -39,6 +40,7 @@ app.get('/', (_req, res) => {
       conflicts: 'GET /api/articles/conflicts?title=...',
       extract: 'POST /api/extract (multipart field: file) -> { text, kind, hash, ... }',
       ocr: 'POST /api/ocr (multipart field: file, optional lang) -> { text, kind: image, hash, ... }',
+      auth: 'POST /api/auth/login { username, password } -> { id, username, role }',
       tags: 'GET /api/tags',
       users: 'GET /api/users',
     },
@@ -51,6 +53,7 @@ app.use('/api/users', usersRouter)
 app.use('/api/ingestion', ingestionRouter)
 app.use('/api/extract', extractRouter)
 app.use('/api/ocr', ocrRouter)
+app.use('/api/auth', authRouter)
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' })
