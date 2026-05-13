@@ -1,0 +1,10 @@
+DHL SmartHub — Dummy ingestion file (RPA / UiPath test)
+
+Title: Inbound pallet check at sort facility
+
+Steps:
+1. Scan pallet barcode at dock door.
+2. Verify seal ID matches manifest line 12.
+3. If mismatch, hold pallet and notify supervisor on Teams channel #dock-ops.
+
+Notes: This file simulates a Google Drive–synced text export for Scenario 1 KB automation.

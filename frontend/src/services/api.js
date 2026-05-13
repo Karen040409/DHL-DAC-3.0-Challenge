@@ -63,7 +63,7 @@ export function fetchTags(signal) {
 }
 
 /**
- * @param {{ title: string, summary?: string|null, content?: string|null, creator_id: number }} data
+ * @param {{ title: string, summary?: string|null, content?: string|null, creator_id: number, tags?: string[] }} data
  */
 export function createArticle(data) {
   return request('/api/articles', {

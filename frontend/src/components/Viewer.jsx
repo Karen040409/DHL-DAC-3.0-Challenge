@@ -73,7 +73,8 @@ export default function Viewer() {
     const q = search.trim().toLowerCase()
     if (!q) return articles
     return articles.filter((a) => {
-      const hay = `${a.title ?? ''} ${a.summary ?? ''} ${a.content ?? ''}`.toLowerCase()
+      const tagStr = Array.isArray(a.tags) ? a.tags.join(' ') : ''
+      const hay = `${a.title ?? ''} ${a.summary ?? ''} ${a.content ?? ''} ${tagStr}`.toLowerCase()
       return hay.includes(q)
     })
   }, [articles, search])
@@ -191,6 +192,15 @@ export default function Viewer() {
                   <span className={`${styles.pill} ${statusClass(a.status)}`}>{a.status}</span>
                 </div>
                 {a.summary ? <p className={styles.summary}>{a.summary}</p> : null}
+                {Array.isArray(a.tags) && a.tags.length > 0 ? (
+                  <p className={styles.tagRow}>
+                    {a.tags.map((name) => (
+                      <span key={name} className={styles.tagChip}>
+                        {name}
+                      </span>
+                    ))}
+                  </p>
+                ) : null}
                 <p className={styles.meta}>
                   #{a.id} · updated{' '}
                   {a.updated_at ? new Date(a.updated_at).toLocaleString() : '—'}

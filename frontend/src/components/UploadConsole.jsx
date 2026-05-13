@@ -25,6 +25,7 @@ export default function UploadConsole() {
   const fileRef = useRef(null)
 
   const [title, setTitle] = useState('')
+  const [tagsInput, setTagsInput] = useState('')
   const [rawText, setRawText] = useState('')
   const [files, setFiles] = useState([])
   const [busy, setBusy] = useState(false)
@@ -56,6 +57,10 @@ export default function UploadConsole() {
     const summary =
       raw.slice(0, 400) + (raw.length > 400 ? '…' : '') || 'Draft created from upload console.'
     const content = buildContent(raw, files)
+    const tags = tagsInput
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
 
     setBusy(true)
     try {
@@ -64,10 +69,12 @@ export default function UploadConsole() {
         summary,
         content,
         creator_id: session.userId,
+        ...(tags.length > 0 ? { tags } : {}),
       })
       setDone(`Saved draft #${created.id} — “${created.title}”.`)
       setRawText('')
       setTitle('')
+      setTagsInput('')
       setFiles([])
       if (fileRef.current) fileRef.current.value = ''
     } catch (err) {
@@ -107,6 +114,16 @@ export default function UploadConsole() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Overrides first line of pasted text"
+            />
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor="upload-tags">Tags (optional, comma-separated)</label>
+            <input
+              id="upload-tags"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="e.g. Logistics, SOP, Dock Operations"
             />
           </div>
 

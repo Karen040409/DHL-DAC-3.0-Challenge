@@ -1,5 +1,10 @@
 import { Router } from 'express'
 import pool from '../db/pool.js'
+import {
+  attachTagsToRows,
+  linkTagsToArticle,
+  parseTagNames,
+} from './articleTags.js'
 
 const router = Router()
 
@@ -35,7 +40,7 @@ router.get('/', async (req, res) => {
     sql += ` ORDER BY a.updated_at DESC`
 
     const [rows] = await pool.query(sql, params)
-    res.json(rows)
+    res.json(await attachTagsToRows(rows))
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Failed to list articles' })
@@ -44,6 +49,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const { title, summary, content, creator_id: creatorId } = req.body ?? {}
+  const tagNames = parseTagNames(req.body)
 
   if (title === undefined || String(title).trim() === '') {
     return res.status(400).json({ error: 'title is required' })
@@ -52,8 +58,9 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'creator_id is required' })
   }
 
+  const conn = await pool.getConnection()
   try {
-    const [userRows] = await pool.query(
+    const [userRows] = await conn.query(
       'SELECT id FROM users WHERE id = ? LIMIT 1',
       [creatorId],
     )
@@ -61,7 +68,9 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'creator_id does not reference a valid user' })
     }
 
-    const [result] = await pool.query(
+    await conn.beginTransaction()
+
+    const [result] = await conn.query(
       `INSERT INTO articles (title, summary, content, status, creator_id)
        VALUES (?, ?, ?, 'Draft', ?)`,
       [
@@ -72,15 +81,28 @@ router.post('/', async (req, res) => {
       ],
     )
 
+    const articleId = result.insertId
+    await linkTagsToArticle(conn, articleId, tagNames)
+
+    await conn.commit()
+
     const [created] = await pool.query(
       `SELECT id, title, summary, content, status, creator_id, created_at, updated_at
        FROM articles WHERE id = ?`,
-      [result.insertId],
+      [articleId],
     )
-    res.status(201).json(created[0])
+    const [withTags] = await attachTagsToRows(created)
+    res.status(201).json(withTags)
   } catch (err) {
+    try {
+      await conn.rollback()
+    } catch {
+      /* no active transaction */
+    }
     console.error(err)
     res.status(500).json({ error: 'Failed to create article' })
+  } finally {
+    conn.release()
   }
 })
 
@@ -137,7 +159,8 @@ router.put('/:id', async (req, res) => {
        FROM articles WHERE id = ?`,
       [id],
     )
-    res.json(rows[0])
+    const [withTags] = await attachTagsToRows(rows)
+    res.json(withTags)
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Failed to update article' })

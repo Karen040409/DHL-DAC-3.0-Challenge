@@ -151,6 +151,23 @@
   overflow: hidden;
 }
 
+.tagRow {
+  margin: 0 0 0.45rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tagChip {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  background: var(--code-bg, #f4f3ec);
+  border: 1px solid var(--border, #e5e4e7);
+  color: var(--text-h, #08060d);
+}
+
 .meta {
   margin: 0 0 0.65rem;
   font-size: 0.78rem;
