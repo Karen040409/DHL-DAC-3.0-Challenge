@@ -42,16 +42,48 @@ async function request(path, options = {}) {
 }
 
 /**
- * @param {{ status?: string, tag?: string, signal?: AbortSignal }} [params]
- * @returns {Promise<Array<Record<string, unknown>>>}
+ * @param {{
+ *   status?: string,
+ *   tag?: string,
+ *   creator_id?: string|number,
+ *   updated_from?: string,
+ *   updated_to?: string,
+ *   signal?: AbortSignal
+ * }} [params]
  */
 export function fetchArticles(params = {}) {
-  const { status, tag, signal } = params
+  const { status, tag, creator_id, updated_from, updated_to, signal } = params
   const q = new URLSearchParams()
   if (status) q.set('status', status)
   if (tag) q.set('tag', tag)
+  if (creator_id) q.set('creator_id', String(creator_id))
+  if (updated_from) q.set('updated_from', updated_from)
+  if (updated_to) q.set('updated_to', updated_to)
   const qs = q.toString()
   return request(`/api/articles${qs ? `?${qs}` : ''}`, { signal })
+}
+
+/**
+ * @param {number|string} id
+ * @param {AbortSignal} [signal]
+ */
+export function fetchArticle(id, signal) {
+  return request(`/api/articles/${encodeURIComponent(String(id))}`, { signal })
+}
+
+/**
+ * @param {number|string} id
+ * @param {AbortSignal} [signal]
+ */
+export function fetchArticleHistory(id, signal) {
+  return request(`/api/articles/${encodeURIComponent(String(id))}/history`, { signal })
+}
+
+/**
+ * @param {AbortSignal} [signal]
+ */
+export function fetchUsers(signal) {
+  return request('/api/users', { signal })
 }
 
 /**
@@ -76,12 +108,17 @@ export function createArticle(data) {
 /**
  * @param {number|string} id
  * @param {'Draft'|'Reviewed'|'Published'} status
+ * @param {number|undefined} [actorUserId] — optional editor id for status history
  */
-export function updateArticleStatus(id, status) {
+export function updateArticleStatus(id, status, actorUserId) {
+  const body = { status }
+  if (actorUserId != null && Number.isFinite(Number(actorUserId))) {
+    body.actor_user_id = Number(actorUserId)
+  }
   return request(`/api/articles/${encodeURIComponent(String(id))}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(body),
   })
 }
 

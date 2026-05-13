@@ -67,3 +67,26 @@ CREATE TABLE IF NOT EXISTS article_tags (
     ON DELETE CASCADE
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------------
+-- Article status history (Draft → Reviewed → Published audit)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS article_status_history (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  article_id INT UNSIGNED NOT NULL,
+  from_status ENUM('Draft', 'Reviewed', 'Published') NULL,
+  to_status ENUM('Draft', 'Reviewed', 'Published') NOT NULL,
+  actor_user_id INT UNSIGNED NULL,
+  changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_hist_article (article_id),
+  KEY idx_hist_changed (changed_at),
+  CONSTRAINT fk_hist_article
+    FOREIGN KEY (article_id) REFERENCES articles (id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_hist_actor
+    FOREIGN KEY (actor_user_id) REFERENCES users (id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE=InnoDB;

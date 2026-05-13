@@ -3,6 +3,7 @@ import express from 'express'
 import cors from 'cors'
 import articlesRouter from './routes/articles.js'
 import tagsRouter from './routes/tags.js'
+import usersRouter from './routes/users.js'
 
 const app = express()
 const PORT = Number(process.env.PORT) || 3001
@@ -31,12 +32,14 @@ app.get('/', (_req, res) => {
       health: 'GET /api/health',
       articles: 'GET|POST /api/articles',
       tags: 'GET /api/tags',
+      users: 'GET /api/users',
     },
   })
 })
 
 app.use('/api/articles', articlesRouter)
 app.use('/api/tags', tagsRouter)
+app.use('/api/users', usersRouter)
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' })
