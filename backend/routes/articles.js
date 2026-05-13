@@ -5,10 +5,13 @@ import {
   linkTagsToArticle,
   parseTagNames,
 } from './articleTags.js'
+import attachmentsRouter from './attachments.js'
 
 const router = Router()
 
 const ARTICLE_STATUSES = new Set(['Draft', 'Reviewed', 'Published'])
+
+router.use('/:articleId(\\d+)/attachments', attachmentsRouter)
 
 function parseDateParam(value) {
   if (value === undefined || value === null || value === '') return null
@@ -146,6 +149,54 @@ router.post('/', async (req, res) => {
   }
 })
 
+/**
+ * GET /api/articles/conflicts?title=...&tag=Logistics
+ * Returns Published or Reviewed articles whose title shares meaningful tokens
+ * with the proposed draft. Used by the Draft Builder to warn editors before save.
+ */
+router.get('/conflicts', async (req, res) => {
+  const titleRaw = String(req.query.title ?? '').trim()
+  if (titleRaw.length < 3) {
+    return res.json([])
+  }
+  const tag = req.query.tag ? String(req.query.tag).trim() : ''
+
+  const tokens = titleRaw
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 4)
+    .slice(0, 8)
+  if (tokens.length === 0) {
+    return res.json([])
+  }
+
+  const likeClauses = tokens.map(() => 'LOWER(a.title) LIKE ?').join(' OR ')
+  const params = tokens.map((t) => `%${t}%`)
+
+  let sql = `SELECT DISTINCT a.id, a.title, a.status, a.updated_at, u.username AS creator_username
+             FROM articles a
+             LEFT JOIN users u ON u.id = a.creator_id`
+  const conds = [
+    `a.status IN ('Reviewed','Published')`,
+    `(${likeClauses})`,
+  ]
+  if (tag) {
+    sql += ` INNER JOIN article_tags at ON at.article_id = a.id
+             INNER JOIN tags t ON t.id = at.tag_id`
+    conds.push('LOWER(t.name) = LOWER(?)')
+    params.push(tag)
+  }
+  sql += ` WHERE ${conds.join(' AND ')} ORDER BY a.updated_at DESC LIMIT 10`
+
+  try {
+    const [rows] = await pool.query(sql, params)
+    res.json(rows)
+  } catch (err) {
+    console.error('[articles] conflicts failed:', err)
+    res.status(500).json({ error: 'Failed to look up conflicts' })
+  }
+})
+
 router.get('/:id(\\d+)/history', async (req, res) => {
   const id = Number(req.params.id)
   try {
@@ -180,7 +231,18 @@ router.get('/:id(\\d+)', async (req, res) => {
       return res.status(404).json({ error: 'Article not found' })
     }
     const [withTags] = await attachTagsToRows(rows)
-    res.json(withTags[0])
+    const [attRows] = await pool.query(
+      `SELECT id, original_name, mime_type, size_bytes, uploaded_at
+       FROM article_attachments WHERE article_id = ? ORDER BY uploaded_at ASC, id ASC`,
+      [id],
+    )
+    res.json({
+      ...withTags[0],
+      attachments: attRows.map((r) => ({
+        ...r,
+        download_url: `/api/articles/${id}/attachments/${r.id}/download`,
+      })),
+    })
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Failed to load article' })

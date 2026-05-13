@@ -1,0 +1,83 @@
+<Activity mc:Ignorable="sap sap2010"
+          x:Class="Main"
+          xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+          xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+          xmlns:s="clr-namespace:System;assembly=mscorlib"
+          xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+          xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+          xmlns:scg="clr-namespace:System.Collections.Generic;assembly=mscorlib"
+          xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+          xmlns:ui="http://schemas.uipath.com/workflow/activities"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    SmartHubBot / Main.xaml
+
+    This file is a *Studio-ready scaffold* — open it in UiPath Studio and drop the
+    activities described in README.md and Workflows/*.md.  The Variables panel
+    already lists the names every sub-workflow expects.
+
+    High-level structure:
+
+    Sequence "SmartHubBot"
+      └── Try
+          ├── 1. ReadConfig (Excel Application Scope on Data\Config.xlsx)
+          ├── 2. InitCounters and io_LogTable
+          ├── 3. For Each file in Directory.GetFiles(in_Config("InputFolder"))
+          │     └── Try
+          │         ├── Invoke Workflow: Workflows\ReadInput.xaml
+          │         │     args: in_File, out_Text, out_MimeKind
+          │         ├── Invoke Workflow: Workflows\CheckDuplicate.xaml
+          │         │     args: in_Text, in_Config, out_IsDuplicate, out_ArticleId
+          │         ├── If io_IsDuplicate → log row, continue
+          │         ├── Invoke Workflow: Workflows\CreateArticle.xaml
+          │         │     args: in_Text, in_File, in_Config, out_NewArticleId
+          │         ├── If in_Config("AdvanceToReviewed") = "True"
+          │         │     Invoke Workflow: Workflows\UpdateStatus.xaml
+          │         └── Append row to ProcessingLog.xlsx + log table
+          │     Catch System.Exception ex
+          │         Invoke Workflow: Workflows\HandleError.xaml
+          ├── 4. Write ProcessingLog.xlsx back to disk
+          └── 5. Invoke Workflow: Workflows\SendSummaryEmail.xaml
+      Catch System.Exception ex
+          Log Message: "Fatal: " + ex.Message
+          Send Outlook/SMTP failure alert to in_Config("AdminEmail")
+
+    Variables declared at Sequence scope:
+      in_Config:        Dictionary<String,String>
+      io_Counters:      Dictionary<String,Int32>
+                        { "Created"=0, "Updated"=0, "Duplicates"=0, "Failed"=0 }
+      io_LogTable:      DataTable (cols: Timestamp, FileName, Hash, Outcome, ArticleId, Notes)
+      io_LogPath:       String
+      in_CurrentFile:   String
+  -->
+
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>System</x:String>
+      <x:String>System.IO</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Data</x:String>
+      <x:String>UiPath.Core</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>System.Data</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+
+  <Sequence DisplayName="SmartHubBot — Orchestrator">
+    <Sequence.Variables>
+      <Variable x:TypeArguments="scg:Dictionary(x:String, x:String)" Name="in_Config" />
+      <Variable x:TypeArguments="scg:Dictionary(x:String, x:Int32)" Name="io_Counters" />
+      <Variable x:TypeArguments="s:Data.DataTable" Name="io_LogTable" />
+      <Variable x:TypeArguments="x:String" Name="io_LogPath" />
+    </Sequence.Variables>
+
+    <!-- Placeholder Log Message so the file opens cleanly in Studio.
+         Replace with the activities listed above. -->
+    <ui:LogMessage Level="Info" Message="SmartHubBot scaffold loaded. Implement steps from Workflows/*.md." />
+  </Sequence>
+</Activity>

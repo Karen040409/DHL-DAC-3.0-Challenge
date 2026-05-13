@@ -191,3 +191,97 @@
     background: rgba(34, 197, 94, 0.12);
   }
 }
+
+.secondary {
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 10px;
+  padding: 0.55rem 0.95rem;
+  border: 1px solid rgba(212, 5, 17, 0.35);
+  background: var(--input-bg, #fff);
+  color: var(--text-h, #08060d);
+}
+
+.secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondary:hover:not(:disabled) {
+  background: rgba(255, 204, 0, 0.18);
+}
+
+.proposalBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.notes {
+  margin: 0;
+  padding-left: 1.05rem;
+  font-size: 0.82rem;
+  color: var(--text, #6b6375);
+  line-height: 1.4;
+}
+
+.conflict {
+  margin-top: 0.45rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(255, 204, 0, 0.18);
+  border: 1px solid rgba(212, 5, 17, 0.3);
+  color: var(--text-h, #08060d);
+  font-size: 0.85rem;
+}
+
+.conflict ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.05rem;
+}
+
+.steps {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.steps li {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.steps li input {
+  flex: 1;
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e5e4e7);
+  background: var(--input-bg, #fff);
+  color: var(--text-h, #08060d);
+}
+
+.linkBtn {
+  font: inherit;
+  font-size: 0.8rem;
+  background: transparent;
+  border: none;
+  color: #b91c1c;
+  cursor: pointer;
+  padding: 0;
+}
+
+.linkBtn:hover {
+  text-decoration: underline;
+}
+
+.linkList {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.86rem;
+}

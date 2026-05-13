@@ -1,0 +1,8 @@
+SOP — invoice dispute (whiteboard photo)
+
+* Customer flags invoice > 5% off agreed rate.
+* Pull contract + last 3 invoices from billing folder.
+* Compare rate card.
+* If our error → issue credit note within 48h.
+* If customer error → reply with copy of rate card + signed contract page.
+* Always CC sales lead on the response.

@@ -1,0 +1,13 @@
+[Teams export] #dock-ops — 2026-04-12
+
+karen.ops 09:14: Pallet PLT-7782 sat in lane 4 for 32 minutes. Seal mismatch with manifest line 12.
+amir.shift 09:15: Did you hold it?
+karen.ops 09:15: Yes, supervisor was paged on Teams.
+amir.shift 09:16: Reminder of the procedure for next time:
+  1. Scan pallet barcode at the dock door.
+  2. Compare seal ID against the manifest line referenced in the carrier email.
+  3. If mismatch, hold pallet at lane 4 and ping #dock-ops with photo of the seal.
+  4. Supervisor decides between release-with-note or quarantine.
+karen.ops 09:18: Cool — I'll write this up as an SOP draft.
+
+Notes: Customer was DHL inbound. Carrier: ABC Lines. Seal source: paper manifest.

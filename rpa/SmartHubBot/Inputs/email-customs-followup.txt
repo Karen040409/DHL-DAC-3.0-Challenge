@@ -1,0 +1,18 @@
+From: broker@customs.example
+To: ops.editor@dhl.example
+Subject: HS code clarification for shipment SHP-44021
+
+Hi Karen,
+
+Following our call, here's the workflow we agreed on for HS code disputes:
+
+1. Receive carrier query in the customs inbox.
+2. Pull the original commercial invoice from the shared drive.
+3. Validate HTS code against the goods description (use the broker portal).
+4. If unclear, send back to the originating BU within 24 hours.
+5. Log the final code in the customs tracker.
+
+Please convert this into an SOP for the team. Documentation link: https://intranet.example/customs/hts-guidelines
+
+Thanks,
+Aaron (Broker, ABC Customs)

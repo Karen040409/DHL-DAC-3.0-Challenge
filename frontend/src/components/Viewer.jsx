@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  attachmentDownloadUrl,
   deleteArticle,
+  fetchArticle,
   fetchArticleHistory,
   fetchArticles,
   fetchTags,
@@ -58,6 +60,10 @@ export default function Viewer() {
   const [historyRows, setHistoryRows] = useState([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState(null)
+
+  const [detailArticle, setDetailArticle] = useState(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState(null)
 
   const loadArticles = useCallback(async () => {
     setLoading(true)
@@ -155,6 +161,25 @@ export default function Viewer() {
     setHistoryArticle(null)
     setHistoryRows([])
     setHistoryError(null)
+  }
+
+  async function openDetail(a) {
+    setDetailArticle({ id: a.id, title: a.title, status: a.status })
+    setDetailError(null)
+    setDetailLoading(true)
+    try {
+      const full = await fetchArticle(a.id)
+      setDetailArticle(full)
+    } catch (e) {
+      setDetailError(e instanceof Error ? e.message : 'Failed to load article')
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  function closeDetail() {
+    setDetailArticle(null)
+    setDetailError(null)
   }
 
   const canEdit = Boolean(session)
@@ -292,8 +317,11 @@ export default function Viewer() {
                   updated {a.updated_at ? new Date(a.updated_at).toLocaleString() : '—'}
                 </p>
                 <div className={styles.actions}>
+                  <button type="button" className={styles.action} onClick={() => openDetail(a)}>
+                    Open
+                  </button>
                   <button type="button" className={styles.action} onClick={() => openHistory(a)}>
-                    Status history
+                    History
                   </button>
                   {canEdit && advance ? (
                     <button
@@ -326,6 +354,82 @@ export default function Viewer() {
         <p className={styles.muted} style={{ marginTop: '1.25rem' }}>
           Sign in to advance status or delete. Anyone can open <strong>Status history</strong>.
         </p>
+      ) : null}
+
+      {detailArticle ? (
+        <div
+          className={styles.modalBackdrop}
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeDetail()
+          }}
+        >
+          <div className={`${styles.modal} ${styles.detailModal}`} role="dialog" aria-labelledby="detail-title">
+            <div className={styles.modalHead}>
+              <h2 id="detail-title">{detailArticle.title || `Article #${detailArticle.id}`}</h2>
+              <button type="button" className={styles.modalClose} onClick={closeDetail}>
+                Close
+              </button>
+            </div>
+            <p className={styles.modalSub}>
+              #{detailArticle.id} ·{' '}
+              <span className={`${styles.pill} ${statusClass(detailArticle.status)}`}>
+                {detailArticle.status}
+              </span>
+              {detailArticle.creator_username ? (
+                <> · creator <strong>{detailArticle.creator_username}</strong></>
+              ) : null}
+            </p>
+            {detailLoading ? <p className={styles.muted}>Loading…</p> : null}
+            {detailError ? (
+              <p className={styles.error} role="alert">
+                {detailError}
+              </p>
+            ) : null}
+            {!detailLoading && !detailError ? (
+              <>
+                {detailArticle.summary ? (
+                  <p style={{ margin: '0 0 0.85rem', whiteSpace: 'pre-wrap' }}>
+                    <strong>Summary.</strong> {detailArticle.summary}
+                  </p>
+                ) : null}
+                {Array.isArray(detailArticle.tags) && detailArticle.tags.length > 0 ? (
+                  <p className={styles.tagRow}>
+                    {detailArticle.tags.map((name) => (
+                      <span key={name} className={styles.tagChip}>{name}</span>
+                    ))}
+                  </p>
+                ) : null}
+                {detailArticle.content ? (
+                  <pre className={styles.contentBlock}>{detailArticle.content}</pre>
+                ) : null}
+                {Array.isArray(detailArticle.attachments) && detailArticle.attachments.length > 0 ? (
+                  <div className={styles.attBlock}>
+                    <h3 className={styles.attTitle}>Attachments</h3>
+                    <ul className={styles.attList}>
+                      {detailArticle.attachments.map((att) => (
+                        <li key={att.id}>
+                          <a
+                            href={attachmentDownloadUrl(detailArticle.id, att.id)}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {att.original_name}
+                          </a>{' '}
+                          <span className={styles.muted}>
+                            ({Math.max(1, Math.round((att.size_bytes ?? 0) / 1024))} KB)
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className={styles.muted}>No attachments on this article.</p>
+                )}
+              </>
+            ) : null}
+          </div>
+        </div>
       ) : null}
 
       {historyArticle ? (

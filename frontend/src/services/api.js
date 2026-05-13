@@ -131,3 +131,53 @@ export async function deleteArticle(id) {
     parseJson: false,
   })
 }
+
+/**
+ * Looks for Reviewed/Published articles with similar titles so the editor sees
+ * potential conflicts before saving a new draft.
+ * @param {string} title
+ * @param {string} [tag]
+ * @param {AbortSignal} [signal]
+ */
+export function findConflicts(title, tag, signal) {
+  const q = new URLSearchParams()
+  q.set('title', title)
+  if (tag) q.set('tag', tag)
+  return request(`/api/articles/conflicts?${q.toString()}`, { signal })
+}
+
+/**
+ * @param {number|string} articleId
+ * @param {File[]} files
+ * @param {number} [uploadedBy]
+ */
+export async function uploadAttachments(articleId, files, uploadedBy) {
+  if (!files || files.length === 0) return { uploaded: [], all: [] }
+  const fd = new FormData()
+  for (const f of files) fd.append('files', f, f.name)
+  if (uploadedBy != null) fd.append('uploaded_by', String(uploadedBy))
+  const url = `${API_BASE}/api/articles/${encodeURIComponent(String(articleId))}/attachments`
+  const res = await fetch(url, { method: 'POST', body: fd })
+  if (!res.ok) throw new Error(await parseError(res))
+  return res.json()
+}
+
+/**
+ * @param {number|string} articleId
+ * @param {AbortSignal} [signal]
+ */
+export function fetchAttachments(articleId, signal) {
+  return request(
+    `/api/articles/${encodeURIComponent(String(articleId))}/attachments`,
+    { signal },
+  )
+}
+
+/**
+ * Build a download URL for an attachment (absolute when VITE_API_BASE_URL is set).
+ * @param {number|string} articleId
+ * @param {number|string} attachmentId
+ */
+export function attachmentDownloadUrl(articleId, attachmentId) {
+  return `${API_BASE}/api/articles/${encodeURIComponent(String(articleId))}/attachments/${encodeURIComponent(String(attachmentId))}/download`
+}

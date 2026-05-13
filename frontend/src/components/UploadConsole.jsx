@@ -1,23 +1,24 @@
-import { useRef, useState } from 'react'
-import { createArticle } from '../services/api.js'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  createArticle,
+  findConflicts,
+  uploadAttachments,
+} from '../services/api.js'
+import { proposeDraft } from '../services/draftBuilder.js'
 import { getSession } from '../auth/session.js'
 import styles from './UploadConsole.module.css'
 
-function deriveTitle(raw, explicitTitle) {
-  const t = explicitTitle.trim()
-  if (t) return t
-  const line = raw.split('\n').find((l) => l.trim().length > 0)
-  if (line) return line.trim().slice(0, 200)
-  return 'Untitled draft'
-}
-
-function buildContent(raw, files) {
+function buildContent(raw, files, steps) {
   const names = files.map((f) => f.name).filter(Boolean)
   const header =
     names.length > 0
-      ? `Attached files (simulated ingestion): ${names.join(', ')}\n\n---\n\n`
+      ? `Attached files (uploaded to server): ${names.join(', ')}\n\n---\n\n`
       : ''
-  return `${header}${raw}`.trim() || null
+  const stepBlock =
+    steps && steps.length > 0
+      ? `Proposed steps:\n${steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\n---\n\n`
+      : ''
+  return `${header}${stepBlock}${raw}`.trim() || null
 }
 
 export default function UploadConsole() {
@@ -25,16 +26,74 @@ export default function UploadConsole() {
   const fileRef = useRef(null)
 
   const [title, setTitle] = useState('')
+  const [summary, setSummary] = useState('')
   const [tagsInput, setTagsInput] = useState('')
   const [rawText, setRawText] = useState('')
   const [files, setFiles] = useState([])
+  const [proposedSteps, setProposedSteps] = useState([])
+  const [proposalNotes, setProposalNotes] = useState([])
+  const [relatedLinks, setRelatedLinks] = useState([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [done, setDone] = useState(null)
+  const [conflicts, setConflicts] = useState([])
+  const [conflictBusy, setConflictBusy] = useState(false)
+
+  const canPropose = rawText.trim().length > 0 || files.length > 0
+
+  useEffect(() => {
+    const t = title.trim()
+    if (t.length < 4) {
+      setConflicts([])
+      return undefined
+    }
+    const ac = new AbortController()
+    const timer = window.setTimeout(async () => {
+      setConflictBusy(true)
+      try {
+        const rows = await findConflicts(t, '', ac.signal)
+        if (Array.isArray(rows)) setConflicts(rows)
+      } catch {
+        /* ignore — conflicts are advisory */
+      } finally {
+        setConflictBusy(false)
+      }
+    }, 350)
+    return () => {
+      window.clearTimeout(timer)
+      ac.abort()
+    }
+  }, [title])
 
   function onFilesPicked(e) {
     const list = e.target.files ? Array.from(e.target.files) : []
     setFiles(list)
+  }
+
+  function applyDraftProposal() {
+    const fileNames = files.map((f) => f.name)
+    const proposal = proposeDraft(rawText, fileNames)
+    setTitle((prev) => (prev.trim() ? prev : proposal.title))
+    setSummary((prev) => (prev.trim() ? prev : proposal.summary))
+    setTagsInput((prev) => {
+      const existing = prev
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      const merged = [...new Set([...existing, ...proposal.tags])]
+      return merged.join(', ')
+    })
+    setProposedSteps(proposal.steps)
+    setProposalNotes(proposal.notes)
+    setRelatedLinks(proposal.related_links)
+    setDone(null)
+    setError(null)
+  }
+
+  function clearProposal() {
+    setProposedSteps([])
+    setProposalNotes([])
+    setRelatedLinks([])
   }
 
   async function handleSubmit(e) {
@@ -53,10 +112,12 @@ export default function UploadConsole() {
       return
     }
 
-    const finalTitle = deriveTitle(rawText, title)
-    const summary =
-      raw.slice(0, 400) + (raw.length > 400 ? '…' : '') || 'Draft created from upload console.'
-    const content = buildContent(raw, files)
+    const finalTitle =
+      title.trim() || proposeDraft(rawText, files.map((f) => f.name)).title
+    const finalSummary =
+      summary.trim() || proposeDraft(rawText, files.map((f) => f.name)).summary
+
+    const content = buildContent(raw, files, proposedSteps)
     const tags = tagsInput
       .split(',')
       .map((s) => s.trim())
@@ -66,16 +127,36 @@ export default function UploadConsole() {
     try {
       const created = await createArticle({
         title: finalTitle,
-        summary,
+        summary: finalSummary,
         content,
         creator_id: session.userId,
         ...(tags.length > 0 ? { tags } : {}),
       })
-      setDone(`Saved draft #${created.id} — “${created.title}”.`)
+
+      let uploadedCount = 0
+      if (files.length > 0) {
+        try {
+          const result = await uploadAttachments(created.id, files, session.userId)
+          uploadedCount = result?.uploaded?.length ?? 0
+        } catch (e) {
+          setError(
+            `Draft saved (#${created.id}) but attachment upload failed: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          )
+        }
+      }
+      setDone(
+        `Saved draft #${created.id} — “${created.title}”${
+          uploadedCount > 0 ? ` with ${uploadedCount} attachment${uploadedCount === 1 ? '' : 's'}` : ''
+        }.`,
+      )
       setRawText('')
       setTitle('')
+      setSummary('')
       setTagsInput('')
       setFiles([])
+      clearProposal()
       if (fileRef.current) fileRef.current.value = ''
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create article.')
@@ -84,13 +165,33 @@ export default function UploadConsole() {
     }
   }
 
+  const conflictBlock = useMemo(() => {
+    if (!conflicts.length) return null
+    return (
+      <div className={styles.conflict} role="alert">
+        <strong>Possible duplicate:</strong> {conflicts.length} existing article
+        {conflicts.length === 1 ? '' : 's'} share words with this title.
+        <ul>
+          {conflicts.slice(0, 5).map((c) => (
+            <li key={c.id}>
+              #{c.id} <strong>{c.title}</strong> · {c.status}
+              {c.creator_username ? ` · by ${c.creator_username}` : null}
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }, [conflicts])
+
   return (
     <div className={styles.page}>
       <header className={styles.head}>
         <h1 className={styles.title}>Upload console</h1>
         <p className={styles.lead}>
           Paste messy operational input (Teams threads, emails, notes) or attach PDF/DOCX
-          files. Submitting creates a new <strong>Draft</strong> article via the REST API.
+          files. Use <strong>Propose draft</strong> to auto-fill a title, summary, tags and
+          step list, then save as a <strong>Draft</strong> via the REST API. Attachments are
+          stored on the server and downloadable from the Viewer.
         </p>
       </header>
 
@@ -108,26 +209,6 @@ export default function UploadConsole() {
           ) : null}
 
           <div className={styles.field}>
-            <label htmlFor="upload-title">Article title (optional)</label>
-            <input
-              id="upload-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Overrides first line of pasted text"
-            />
-          </div>
-
-          <div className={styles.field}>
-            <label htmlFor="upload-tags">Tags (optional, comma-separated)</label>
-            <input
-              id="upload-tags"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="e.g. Logistics, SOP, Dock Operations"
-            />
-          </div>
-
-          <div className={styles.field}>
             <label htmlFor="upload-raw">Raw unstructured text</label>
             <textarea
               id="upload-raw"
@@ -137,9 +218,107 @@ export default function UploadConsole() {
             />
           </div>
 
+          <div className={styles.proposalBar}>
+            <button
+              type="button"
+              className={styles.secondary}
+              onClick={applyDraftProposal}
+              disabled={!canPropose}
+              title="Generates title, summary, tags and steps locally — no LLM key required."
+            >
+              Propose draft (AI-style)
+            </button>
+            {proposalNotes.length > 0 ? (
+              <ul className={styles.notes}>
+                {proposalNotes.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor="upload-title">Title</label>
+            <input
+              id="upload-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Auto-derived from first line when blank"
+            />
+            {conflictBusy ? (
+              <p className={styles.muted}>Checking for similar published articles…</p>
+            ) : null}
+            {conflictBlock}
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor="upload-summary">Summary</label>
+            <textarea
+              id="upload-summary"
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+              placeholder="One or two sentences — auto-filled by Propose draft"
+              style={{ minHeight: '5rem' }}
+            />
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor="upload-tags">Tags (comma-separated)</label>
+            <input
+              id="upload-tags"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="e.g. Logistics, SOP, Dock Operations"
+            />
+          </div>
+
+          {proposedSteps.length > 0 ? (
+            <div className={styles.field}>
+              <label>Proposed steps (included in article content)</label>
+              <ol className={styles.steps}>
+                {proposedSteps.map((s, i) => (
+                  <li key={`${i}-${s.slice(0, 20)}`}>
+                    <input
+                      value={s}
+                      onChange={(e) => {
+                        const next = [...proposedSteps]
+                        next[i] = e.target.value
+                        setProposedSteps(next)
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className={styles.linkBtn}
+                      onClick={() =>
+                        setProposedSteps(proposedSteps.filter((_, idx) => idx !== i))
+                      }
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
+
+          {relatedLinks.length > 0 ? (
+            <div className={styles.field}>
+              <label>Related links detected</label>
+              <ul className={styles.linkList}>
+                {relatedLinks.map((l) => (
+                  <li key={l}>
+                    <a href={l} target="_blank" rel="noreferrer">
+                      {l}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           <div className={styles.drop}>
             <div className={styles.dropHead}>
-              <span className={styles.dropTitle}>Files (PDF, DOCX)</span>
+              <span className={styles.dropTitle}>Files (PDF, DOCX, images)</span>
               <label className={styles.fileBtn} htmlFor="smarthub-upload-files">
                 Browse
               </label>
@@ -148,17 +327,22 @@ export default function UploadConsole() {
                 id="smarthub-upload-files"
                 className={styles.hiddenInput}
                 type="file"
-                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                accept=".pdf,.docx,.png,.jpg,.jpeg,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*"
                 multiple
                 onChange={onFilesPicked}
               />
             </div>
             {files.length === 0 ? (
-              <p className={styles.muted}>No files selected — filenames are recorded in article content for this MVP.</p>
+              <p className={styles.muted}>
+                No files selected. Selected files are saved on the server and listed on the
+                Viewer with download links.
+              </p>
             ) : (
               <ul className={styles.fileList}>
                 {files.map((f) => (
-                  <li key={`${f.name}-${f.size}`}>{f.name}</li>
+                  <li key={`${f.name}-${f.size}`}>
+                    {f.name} <span className={styles.muted}>({Math.round(f.size / 1024)} KB)</span>
+                  </li>
                 ))}
               </ul>
             )}

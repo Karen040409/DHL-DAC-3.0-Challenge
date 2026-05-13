@@ -1,0 +1,7 @@
+.local/
+.objects/
+.entities/
+.tmh/
+.screenshots/
+Logs/
+*.xlsx~
