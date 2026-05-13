@@ -5,6 +5,7 @@ import articlesRouter from './routes/articles.js'
 import tagsRouter from './routes/tags.js'
 import usersRouter from './routes/users.js'
 import ingestionRouter from './routes/ingestion.js'
+import extractRouter from './routes/extract.js'
 
 const app = express()
 const PORT = Number(process.env.PORT) || 3001
@@ -35,6 +36,7 @@ app.get('/', (_req, res) => {
       attachments: 'GET|POST /api/articles/:id/attachments',
       ingestion: 'POST /api/ingestion/check-duplicate, POST /api/ingestion/log, GET /api/ingestion/recent',
       conflicts: 'GET /api/articles/conflicts?title=...',
+      extract: 'POST /api/extract (multipart field: file) -> { text, kind, hash, ... }',
       tags: 'GET /api/tags',
       users: 'GET /api/users',
     },
@@ -45,6 +47,7 @@ app.use('/api/articles', articlesRouter)
 app.use('/api/tags', tagsRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/ingestion', ingestionRouter)
+app.use('/api/extract', extractRouter)
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' })

@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   createArticle,
+  extractTextFromFile,
   findConflicts,
   uploadAttachments,
 } from '../services/api.js'
 import { proposeDraft } from '../services/draftBuilder.js'
 import { getSession } from '../auth/session.js'
 import styles from './UploadConsole.module.css'
+
+function isExtractable(file) {
+  const name = (file?.name || '').toLowerCase()
+  return /\.(pdf|docx|txt|md|csv|json)$/.test(name)
+}
 
 function buildContent(raw, files, steps) {
   const names = files.map((f) => f.name).filter(Boolean)
@@ -38,7 +44,10 @@ export default function UploadConsole() {
   const [done, setDone] = useState(null)
   const [conflicts, setConflicts] = useState([])
   const [conflictBusy, setConflictBusy] = useState(false)
+  const [extractBusy, setExtractBusy] = useState(false)
+  const [extractStatus, setExtractStatus] = useState(null)
 
+  const extractableCount = files.filter(isExtractable).length
   const canPropose = rawText.trim().length > 0 || files.length > 0
 
   useEffect(() => {
@@ -68,6 +77,39 @@ export default function UploadConsole() {
   function onFilesPicked(e) {
     const list = e.target.files ? Array.from(e.target.files) : []
     setFiles(list)
+    setExtractStatus(null)
+  }
+
+  async function handleExtractFromFiles() {
+    const targets = files.filter(isExtractable)
+    if (targets.length === 0) return
+    setExtractBusy(true)
+    setExtractStatus(null)
+    setError(null)
+
+    const results = []
+    const warnings = []
+    for (const f of targets) {
+      try {
+        const r = await extractTextFromFile(f)
+        if (r.text && r.text.trim().length > 0) {
+          results.push(`--- ${r.original_name} (${r.kind}, ${r.char_count} chars) ---\n${r.text}`)
+        }
+        if (r.warning) warnings.push(`${r.original_name}: ${r.warning}`)
+      } catch (e) {
+        warnings.push(`${f.name}: ${e instanceof Error ? e.message : 'extract failed'}`)
+      }
+    }
+
+    if (results.length > 0) {
+      const joined = results.join('\n\n')
+      setRawText((prev) => (prev.trim().length > 0 ? `${prev}\n\n${joined}` : joined))
+    }
+    const msg = []
+    if (results.length > 0) msg.push(`Extracted text from ${results.length} file${results.length === 1 ? '' : 's'}.`)
+    if (warnings.length > 0) msg.push(warnings.join(' '))
+    setExtractStatus(msg.join(' '))
+    setExtractBusy(false)
   }
 
   function applyDraftProposal() {
@@ -342,10 +384,31 @@ export default function UploadConsole() {
                 {files.map((f) => (
                   <li key={`${f.name}-${f.size}`}>
                     {f.name} <span className={styles.muted}>({Math.round(f.size / 1024)} KB)</span>
+                    {isExtractable(f) ? null : (
+                      <span className={styles.muted}> · binary (will be attached but not parsed)</span>
+                    )}
                   </li>
                 ))}
               </ul>
             )}
+            {extractableCount > 0 ? (
+              <div className={styles.extractRow}>
+                <button
+                  type="button"
+                  className={styles.secondary}
+                  onClick={handleExtractFromFiles}
+                  disabled={extractBusy}
+                  title="Sends each PDF/DOCX/TXT to /api/extract and appends the extracted text below."
+                >
+                  {extractBusy
+                    ? 'Extracting…'
+                    : `Extract text from ${extractableCount} file${extractableCount === 1 ? '' : 's'}`}
+                </button>
+                {extractStatus ? (
+                  <span className={styles.muted}>{extractStatus}</span>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <div className={styles.actions}>

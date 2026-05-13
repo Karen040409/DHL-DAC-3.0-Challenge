@@ -15,7 +15,8 @@ This document supports **Project Management (10%)**, **Web (50%)**, and **RPA de
 | 3 | Tags + filters + UiPath POST sample | ☑ | Form POST, `rpa/input` sample |
 | 4 | Status history (Draft→Reviewed→Published) + creator/date filters | ☑ | Migration `002`, Viewer history modal |
 | 5 | Attachments + ingestion API + Draft Builder + UiPath project | ☑ | Migration `003`, `rpa/SmartHubBot/` |
-| 6 | Demo recording + report | ☐ | Screen capture + RPA run video |
+| 6 | Server-side PDF / DOCX extraction in Upload console | ☑ | `pdf-parse`, `mammoth`, `POST /api/extract` |
+| 7 | Demo recording + report | ☐ | Screen capture + RPA run video |
 
 ### Risks / mitigations
 
@@ -42,7 +43,7 @@ This document supports **Project Management (10%)**, **Web (50%)**, and **RPA de
 | CRUD | Articles + attachments + ingestion log; tags GET; users GET |
 | DB-backed | MySQL via `mysql2` pool |
 | Secured access (baseline) | Mock session + protected Upload + per-row API actions; production hardening = bcrypt vs `password_hash` |
-| Upload console (text + PDF + DOCX) | Text + file picker; **files now stored server-side** + downloadable from Viewer |
+| Upload console (text + PDF + DOCX) | Text + file picker; **server-side PDF / DOCX / TXT text extraction** (`POST /api/extract`, `pdf-parse` + `mammoth`); files also stored server-side + downloadable from Viewer |
 | Draft + status | Default **Draft**; transitions **Reviewed** / **Published**, recorded in `article_status_history` |
 | Viewer searchable & filterable | Client search; API filters: status, tag, **creator**, **updated date range**; **Open** modal shows content + attachments |
 | Versioning / status history | `GET /api/articles/:id/history` + modal in Viewer |
@@ -154,6 +155,7 @@ Fresh installs only need `schema.sql` + `seed.sql` — both tables are already i
 | POST | `/api/ingestion/check-duplicate` | RPA: SHA-256 lookback (default 14 days) |
 | POST | `/api/ingestion/log` | RPA: append run event (created / duplicate / failed / updated) |
 | GET | `/api/ingestion/recent?limit=20` | Latest RPA events for admins |
+| POST | `/api/extract` | Server-side PDF / DOCX / TXT text extraction (multipart field `file`, returns `{ text, kind, hash, char_count, warning }`) |
 | GET | `/api/tags` | Tag directory |
 | GET | `/api/users` | Editors for filter dropdown |
 

@@ -181,3 +181,28 @@ export function fetchAttachments(articleId, signal) {
 export function attachmentDownloadUrl(articleId, attachmentId) {
   return `${API_BASE}/api/articles/${encodeURIComponent(String(articleId))}/attachments/${encodeURIComponent(String(attachmentId))}/download`
 }
+
+/**
+ * Send a single PDF/DOCX/TXT to the server for text extraction.
+ * Used by the Upload console to turn messy attachments into editable text
+ * before saving the draft.
+ * @param {File} file
+ * @returns {Promise<{
+ *   original_name: string,
+ *   kind: 'pdf'|'docx'|'text',
+ *   mime_type: string,
+ *   size_bytes: number,
+ *   content_hash: string,
+ *   char_count: number,
+ *   truncated: boolean,
+ *   warning: string|null,
+ *   text: string,
+ * }>}
+ */
+export async function extractTextFromFile(file) {
+  const fd = new FormData()
+  fd.append('file', file, file.name)
+  const res = await fetch(`${API_BASE}/api/extract`, { method: 'POST', body: fd })
+  if (!res.ok) throw new Error(await parseError(res))
+  return res.json()
+}
